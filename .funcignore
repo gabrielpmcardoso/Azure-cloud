@@ -1,0 +1,8 @@
+.git*
+.vscode/
+local.settings.json
+test/
+scripts/
+README.md
+COMANDOS_AZURE.md
+deploy-output/

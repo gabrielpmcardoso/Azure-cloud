@@ -1,0 +1,1 @@
+{"name":"sentimentos-azure","version":"1.0.0","private":true,"main":"src/functions.js","engines":{"node":">=22"},"scripts":{"start":"func start","test":"node --test","db:init":"node scripts/init-db.js"},"dependencies":{"@azure/functions":"^4.7.0","mssql":"^11.0.1"}}
