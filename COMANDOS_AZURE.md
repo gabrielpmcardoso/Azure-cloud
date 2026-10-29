@@ -119,7 +119,7 @@ PY
 az functionapp config appsettings set --name "$APP" --resource-group "$RG" --settings "@$SETTINGS" --output none
 printf -- '- Executado: `az functionapp config appsettings set --settings @arquivo-temporario` (segredos omitidos).\n' >> "$LOG"
 rm -f "$SETTINGS"
-func azure functionapp publish "$APP"
+func azure functionapp publish "$APP" --javascript
 printf -- '- Executado: `func azure functionapp publish %s`.\n' "$APP" >> "$LOG"
 HOSTNAME=$(az functionapp show --name "$APP" --resource-group "$RG" --query defaultHostName -o tsv)
 URL="https://$HOSTNAME/api/sentimentos/totais"
@@ -140,3 +140,14 @@ LOCATION=francecentral RESUME_SUFFIX=17932334314106 RESUME_FROM=sql bash scripts
 ```
 
 Nesse modo o script verifica os dois recursos esperados, não recria Storage/Language, recupera a configuração Language e continua pela criação do SQL. Para caso sem RESUME_FROM, a retomada continua exigindo grupo vazio. A senha passa por validação básica local, e a Azure aplica a política definitiva. Não publique a senha nem as chaves.
+
+## Retomada somente da publicação
+
+O usuário confirmou criação do SQL, tabela, regras de firewall e Function App. A chamada do Core Tools parou por não detectar a linguagem. A correção é informar `--javascript`; não executar novamente o provisionamento.
+
+```bash
+git pull --ff-only
+func azure functionapp publish func-sentimentos-17932334314106 --javascript
+```
+
+O npm audit também reportou duas vulnerabilidades altas em dependências transitivas de autenticação MSAL. A tentativa local de `npm audit fix` não eliminou os alertas; a correção das dependências permanece pendente. O fluxo atual da aplicação usa senha SQL e chave Language, não o fluxo de código de autorização MSAL citado pelo alerta.
