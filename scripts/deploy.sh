@@ -97,8 +97,8 @@ PY
 az functionapp config appsettings set --name "$APP" --resource-group "$RG" --settings "@$SETTINGS" --output none
 printf -- '- Executado: `az functionapp config appsettings set --settings @arquivo-temporario` (segredos omitidos).\n' >> "$LOG"
 rm -f "$SETTINGS"
-func azure functionapp publish "$APP"
-printf -- '- Executado: `func azure functionapp publish %s`.\n' "$APP" >> "$LOG"
+func azure functionapp publish "$APP" --javascript
+printf -- '- Executado: `func azure functionapp publish %s --javascript`.\n' "$APP" >> "$LOG"
 HOSTNAME=$(az functionapp show --name "$APP" --resource-group "$RG" --query defaultHostName -o tsv)
 URL="https://$HOSTNAME/api/sentimentos/totais"
 printf '\nEndpoint publicado (validar com curl): %s\nGrupo de recursos: %s\n' "$URL" "$RG" | tee deploy-output/ENTREGA.txt
