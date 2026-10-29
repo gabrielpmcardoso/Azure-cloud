@@ -9,7 +9,7 @@ read -rp 'Seu IPv4 público (para criar a tabela SQL): ' CLIENT_IP
 read -rsp 'Senha forte para o administrador SQL: ' SQL_PASSWORD
 printf '\n'
 export SQL_PASSWORD
-SUFFIX="$(date +%s)${RANDOM}"
+SUFFIX="${RESUME_SUFFIX:-$(date +%s)${RANDOM}}"
 RG="rg-sentimentos-$SUFFIX"
 LOCATION="${LOCATION:-eastus}"
 STORAGE="stsent$SUFFIX"
@@ -19,13 +19,27 @@ SQL_NAME="sql-sentimentos-$SUFFIX"
 export SQL_SERVER="$SQL_NAME.database.windows.net" SQL_DATABASE=sentimentos SQL_USER=sqladmin
 mkdir -p deploy-output
 LOG=deploy-output/EXECUCAO_AZURE.md
-printf '# Registro de execução\n\nIniciado em %s (UTC).\n\n' "$(date -u +%FT%TZ)" > "$LOG"
+if [[ -n "${RESUME_SUFFIX:-}" ]]; then
+  az group show --name "$RG" --output none
+  RESOURCE_COUNT=$(az resource list --resource-group "$RG" --query 'length(@)' -o tsv)
+  if [[ "$RESOURCE_COUNT" != "0" ]]; then
+    echo "O grupo já contém recursos. Pare e confira o registro antes de retomar."
+    exit 1
+  fi
+  printf '\n## Retomada em %s (UTC), região %s\n\n' "$(date -u +%FT%TZ)" "$LOCATION" >> "$LOG"
+else
+  printf '# Registro de execução\n\nIniciado em %s (UTC).\n\n' "$(date -u +%FT%TZ)" > "$LOG"
+fi
 # Registra somente comandos sem segredos, depois que terminam com sucesso.
-run() { "$@"; printf -- '- Executado: `%s`\n' "$*" >> "$LOG"; }
+run() { echo "Executando: $*"; "$@"; printf -- '- Executado: `%s`\n' "$*" >> "$LOG"; }
+if [[ -z "${RESUME_SUFFIX:-}" ]]; then
 for provider in Microsoft.Web Microsoft.Storage Microsoft.Sql Microsoft.CognitiveServices Microsoft.Insights Microsoft.OperationalInsights; do
   run az provider register --namespace "$provider" --wait --output none
 done
 run az group create --name "$RG" --location "$LOCATION" --output none
+else
+  echo "Reutilizando grupo existente: $RG; novos recursos em $LOCATION"
+fi
 run az storage account create --name "$STORAGE" --resource-group "$RG" --location "$LOCATION" --sku Standard_LRS --kind StorageV2 --output none
 STORAGE_CONNECTION=$(az storage account show-connection-string --name "$STORAGE" --resource-group "$RG" --query connectionString -o tsv)
 az storage queue create --name sentimentos --connection-string "$STORAGE_CONNECTION" --output none
