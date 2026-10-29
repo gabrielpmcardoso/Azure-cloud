@@ -4,10 +4,12 @@ Aplicação JavaScript (Node.js 22, Azure Functions v4) para coletar comentário
 
 ## Situação da entrega
 
-Código implementado e testes locais incluídos. **Os recursos Azure ainda não foram criados nem o endpoint publicado.** O código está disponível no repositório abaixo. Preencha o endpoint somente depois de publicar na Azure:
+Aplicação publicada na Azure em 28/10/2026 (horário de Brasília). As três funções foram reconhecidas, o host está em execução e o endpoint foi consultado com sucesso. Os seis testes locais passaram. Veja [COMANDOS_EXECUTADOS.md](COMANDOS_EXECUTADOS.md) para o registro da implantação.
 
 - Repositório Git: https://github.com/gabrielpmcardoso/Azure-cloud
-- Endpoint HTTP: **PENDENTE**
+- Endpoint HTTP: https://func-sentimentos-17932334314106.azurewebsites.net/api/sentimentos/totais
+
+Consulta após a publicação: `{"positive":3,"neutral":1,"negative":5}`. Os totais mudam conforme novas coletas são processadas.
 
 ## Fluxo
 
