@@ -1,11 +1,23 @@
-# Comandos para criação dos recursos Azure
+# Comandos de implantação na Azure
 
-**Status: roteiro preparado; nenhum destes comandos Azure foi executado nesta entrega.**
-Não apresente este roteiro como histórico de execução. O script gera `deploy-output/EXECUCAO_AZURE.md` com os passos concluídos durante a execução real. O registro não inclui valores secretos. Se houver falha, os recursos já criados permanecem e podem gerar cobrança; consulte o registro e o Portal antes de repetir o script, que gera novos nomes em cada execução.
+## Estado confirmado
 
-## Roteiro completo (Bash)
+O usuário executou o registro dos provedores Microsoft.Web, Microsoft.Storage, Microsoft.Sql, Microsoft.CognitiveServices, Microsoft.Insights e Microsoft.OperationalInsights e criou o grupo `rg-sentimentos-17932334314106` em `eastus`. A criação do Storage foi bloqueada por `RequestDisallowedByAzure`; os passos seguintes não foram executados nessa tentativa. O registro original permanece em `deploy-output/EXECUCAO_AZURE.md` no Cloud Shell.
 
-Execute `az login` e `bash scripts/deploy.sh` na raiz do projeto. Abaixo está o conteúdo integral do script, incluindo os comandos de criação e configuração:
+A política retornada pela assinatura permite: northcentralus, chilecentral, francecentral, belgiumcentral e southafricanorth.
+
+## Retomada preparada (ainda não confirmada)
+
+```bash
+git pull --ff-only
+LOCATION=francecentral RESUME_SUFFIX=17932334314106 bash scripts/deploy.sh
+```
+
+O modo RESUME_SUFFIX só retoma quando o grupo existe e está vazio. Preserva o histórico, pula o registro dos provedores e a criação do grupo, e cria os recursos na região informada. A localização do grupo não precisa ser alterada. Se já houver recursos dentro dele, o script para para evitar repetir etapas sem diagnóstico. Quotas e disponibilidade dos serviços ainda são verificadas pela Azure durante a criação.
+
+## Script completo
+
+Os comandos abaixo são o roteiro; a presença aqui não indica execução bem-sucedida. Após concluir a publicação, copie o registro sanitizado para `COMANDOS_EXECUTADOS.md` e atualize o endpoint no README.
 
 ```bash
 #!/usr/bin/env bash
@@ -19,7 +31,7 @@ read -rp 'Seu IPv4 público (para criar a tabela SQL): ' CLIENT_IP
 read -rsp 'Senha forte para o administrador SQL: ' SQL_PASSWORD
 printf '\n'
 export SQL_PASSWORD
-SUFFIX="$(date +%s)${RANDOM}"
+SUFFIX="${RESUME_SUFFIX:-$(date +%s)${RANDOM}}"
 RG="rg-sentimentos-$SUFFIX"
 LOCATION="${LOCATION:-eastus}"
 STORAGE="stsent$SUFFIX"
@@ -29,13 +41,27 @@ SQL_NAME="sql-sentimentos-$SUFFIX"
 export SQL_SERVER="$SQL_NAME.database.windows.net" SQL_DATABASE=sentimentos SQL_USER=sqladmin
 mkdir -p deploy-output
 LOG=deploy-output/EXECUCAO_AZURE.md
-printf '# Registro de execução\n\nIniciado em %s (UTC).\n\n' "$(date -u +%FT%TZ)" > "$LOG"
+if [[ -n "${RESUME_SUFFIX:-}" ]]; then
+  az group show --name "$RG" --output none
+  RESOURCE_COUNT=$(az resource list --resource-group "$RG" --query 'length(@)' -o tsv)
+  if [[ "$RESOURCE_COUNT" != "0" ]]; then
+    echo "O grupo já contém recursos. Pare e confira o registro antes de retomar."
+    exit 1
+  fi
+  printf '\n## Retomada em %s (UTC), região %s\n\n' "$(date -u +%FT%TZ)" "$LOCATION" >> "$LOG"
+else
+  printf '# Registro de execução\n\nIniciado em %s (UTC).\n\n' "$(date -u +%FT%TZ)" > "$LOG"
+fi
 # Registra somente comandos sem segredos, depois que terminam com sucesso.
-run() { "$@"; printf -- '- Executado: `%s`\n' "$*" >> "$LOG"; }
+run() { echo "Executando: $*"; "$@"; printf -- '- Executado: `%s`\n' "$*" >> "$LOG"; }
+if [[ -z "${RESUME_SUFFIX:-}" ]]; then
 for provider in Microsoft.Web Microsoft.Storage Microsoft.Sql Microsoft.CognitiveServices Microsoft.Insights Microsoft.OperationalInsights; do
   run az provider register --namespace "$provider" --wait --output none
 done
 run az group create --name "$RG" --location "$LOCATION" --output none
+else
+  echo "Reutilizando grupo existente: $RG; novos recursos em $LOCATION"
+fi
 run az storage account create --name "$STORAGE" --resource-group "$RG" --location "$LOCATION" --sku Standard_LRS --kind StorageV2 --output none
 STORAGE_CONNECTION=$(az storage account show-connection-string --name "$STORAGE" --resource-group "$RG" --query connectionString -o tsv)
 az storage queue create --name sentimentos --connection-string "$STORAGE_CONNECTION" --output none
@@ -77,15 +103,3 @@ curl --fail --show-error "$URL"
 printf '\nCopie o registro sanitizado para COMANDOS_EXECUTADOS.md e preencha os links no README.\n'
 
 ```
-
-## Consultar e interromper após a avaliação
-
-Substitua os nomes pelos recursos reais registrados na execução:
-
-```bash
-az functionapp show --resource-group SEU_GRUPO --name SUA_FUNCTION_APP --query defaultHostName -o tsv
-curl --fail https://HOSTNAME_REAL/api/sentimentos/totais
-az functionapp stop --resource-group SEU_GRUPO --name SUA_FUNCTION_APP
-```
-
-Parar a Function App interrompe coletas, mas não remove os demais recursos nem elimina todos os custos.
